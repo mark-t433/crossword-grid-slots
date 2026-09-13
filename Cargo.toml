@@ -1,0 +1,14 @@
+[package]
+name = "gridslots"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Numbers the across/down word slots in a crossword grid"
+
+[lib]
+name = "gridslots"
+path = "src/lib.rs"
+
+[[bin]]
+name = "gridslots"
+path = "src/main.rs"
