@@ -36,6 +36,13 @@ only the shape matters).
 cargo run -- example.txt
 ```
 
+It also reads from stdin, either when no file argument is given or when
+the argument is `-`, so it fits in a pipeline:
+
+```
+cat example.txt | cargo run
+```
+
 Output:
 
 ```
