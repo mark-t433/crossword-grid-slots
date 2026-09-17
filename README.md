@@ -58,20 +58,34 @@ Slot 3 is an across-only entry starting at row 2, col 0. The center
 cell is blocked, so it never gets a number and neither the middle row
 nor the middle column runs through it.
 
+Pass `--format json` for machine-readable output instead:
+
+```
+cargo run -- --format json example.txt
+```
+
+```
+[{"number":1,"direction":"across","row":0,"col":0,"length":3},{"number":1,"direction":"down","row":0,"col":0,"length":3},{"number":2,"direction":"down","row":0,"col":2,"length":3},{"number":3,"direction":"across","row":2,"col":0,"length":3}]
+```
+
+The default is `--format text`. `--format=json` also works.
+
 ## Library
 
-The CLI is a thin wrapper around two functions in `src/lib.rs`:
+The CLI is a thin wrapper around three functions in `src/lib.rs`:
 
 ```rust
 let grid = gridslots::parse_grid(&text)?;
 let slots = gridslots::slots(&grid);
+let json = gridslots::to_json(&slots);
 ```
 
-Both are pure: `parse_grid` turns text into a `Grid`, `slots` turns a
-`Grid` into a `Vec<Slot>`, and neither touches the filesystem or any
-other state. That makes every case, including edge cases like a single
-open cell or a fully blocked grid, a plain input-output test — see the
-tests at the bottom of `src/lib.rs`.
+All three are pure: `parse_grid` turns text into a `Grid`, `slots` turns
+a `Grid` into a `Vec<Slot>`, and `to_json` turns a slice of `Slot` into
+a JSON string. None of them touch the filesystem or any other state.
+That makes every case, including edge cases like a single open cell or
+a fully blocked grid, a plain input-output test — see the tests at the
+bottom of `src/lib.rs`.
 
 ## License
 

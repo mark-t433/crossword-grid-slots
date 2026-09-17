@@ -161,6 +161,37 @@ fn starts_down(grid: &Grid, row: usize, col: usize) -> bool {
     above_is_boundary && below_is_open
 }
 
+impl Direction {
+    fn as_str(&self) -> &'static str {
+        match self {
+            Direction::Across => "across",
+            Direction::Down => "down",
+        }
+    }
+}
+
+/// Renders slots as a JSON array of objects, in the same order `slots`
+/// produced them. No external crate needed: the fields are all plain
+/// numbers or fixed enum strings, so there's nothing to escape.
+pub fn to_json(slots: &[Slot]) -> String {
+    let mut out = String::from("[");
+    for (i, slot) in slots.iter().enumerate() {
+        if i > 0 {
+            out.push(',');
+        }
+        out.push_str(&format!(
+            "{{\"number\":{number},\"direction\":\"{direction}\",\"row\":{row},\"col\":{col},\"length\":{length}}}",
+            number = slot.number,
+            direction = slot.direction.as_str(),
+            row = slot.row,
+            col = slot.col,
+            length = slot.length,
+        ));
+    }
+    out.push(']');
+    out
+}
+
 fn across_length(grid: &Grid, row: usize, col: usize) -> usize {
     let mut len = 0;
     let mut c = col;
@@ -254,5 +285,26 @@ mod tests {
         assert!(!grid.is_block(0, 1));
         assert!(!grid.is_block(1, 0));
         assert!(!grid.is_block(1, 1));
+    }
+
+    #[test]
+    fn to_json_renders_empty_slots_as_empty_array() {
+        assert_eq!(to_json(&[]), "[]");
+    }
+
+    #[test]
+    fn to_json_renders_one_slot_per_object() {
+        let grid = parse_grid("...\n.#.\n...").unwrap();
+        let result = slots(&grid);
+
+        assert_eq!(
+            to_json(&result),
+            "[\
+             {\"number\":1,\"direction\":\"across\",\"row\":0,\"col\":0,\"length\":3},\
+             {\"number\":1,\"direction\":\"down\",\"row\":0,\"col\":0,\"length\":3},\
+             {\"number\":2,\"direction\":\"down\",\"row\":0,\"col\":2,\"length\":3},\
+             {\"number\":3,\"direction\":\"across\",\"row\":2,\"col\":0,\"length\":3}\
+             ]"
+        );
     }
 }
