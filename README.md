@@ -18,9 +18,9 @@ one question: what are the slots?
 ## Grid format
 
 One line per row. `#` marks a black square; any other character marks
-an open cell (so you can use `.` for an empty grid or real letters if
-you already have a filled one — letters are not currently echoed back,
-only the shape matters).
+an open cell. Use `.` for an empty grid, or put real letters in if you
+already have a filled one — each slot's letters are echoed back in its
+output.
 
 `example.txt`:
 
@@ -46,17 +46,20 @@ cat example.txt | cargo run
 Output:
 
 ```
-1A row=0 col=0 len=3
-1D row=0 col=0 len=3
-2D row=0 col=2 len=3
-3A row=2 col=0 len=3
+1A row=0 col=0 len=3 text=...
+1D row=0 col=0 len=3 text=...
+2D row=0 col=2 len=3 text=...
+3A row=2 col=0 len=3 text=...
 ```
 
 Reading that: slot 1 starts at row 0, col 0 and runs both across and
 down for 3 cells. Slot 2 is a down-only entry starting at row 0, col 2.
 Slot 3 is an across-only entry starting at row 2, col 0. The center
 cell is blocked, so it never gets a number and neither the middle row
-nor the middle column runs through it.
+nor the middle column runs through it. `text` is `.` for every cell
+here because `example.txt` is unfilled; a grid with real letters would
+show them uppercased, e.g. `text=CAT`, with `.` only where that slot
+crosses a still-blank cell.
 
 Pass `--format json` for machine-readable output instead:
 
@@ -65,7 +68,7 @@ cargo run -- --format json example.txt
 ```
 
 ```
-[{"number":1,"direction":"across","row":0,"col":0,"length":3},{"number":1,"direction":"down","row":0,"col":0,"length":3},{"number":2,"direction":"down","row":0,"col":2,"length":3},{"number":3,"direction":"across","row":2,"col":0,"length":3}]
+[{"number":1,"direction":"across","row":0,"col":0,"length":3,"text":"..."},{"number":1,"direction":"down","row":0,"col":0,"length":3,"text":"..."},{"number":2,"direction":"down","row":0,"col":2,"length":3,"text":"..."},{"number":3,"direction":"across","row":2,"col":0,"length":3,"text":"..."}]
 ```
 
 The default is `--format text`. `--format=json` also works.

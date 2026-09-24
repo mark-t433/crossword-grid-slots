@@ -91,11 +91,12 @@ fn main() -> ExitCode {
                     Direction::Down => "D",
                 };
                 println!(
-                    "{number}{dir} row={row} col={col} len={len}",
+                    "{number}{dir} row={row} col={col} len={len} text={text}",
                     number = slot.number,
                     row = slot.row,
                     col = slot.col,
                     len = slot.length,
+                    text = slot.text,
                 );
             }
         }

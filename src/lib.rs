@@ -9,12 +9,14 @@
 //! This crate answers exactly that question and nothing else: given a
 //! grid shape, what are its numbered slots?
 
-/// A parsed grid shape: dimensions plus which cells are black squares.
+/// A parsed grid shape: dimensions plus the character in each cell.
+/// `#` means a black square; anything else is an open cell, which may
+/// carry a letter (if the source text had a fill) or just a placeholder.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Grid {
     rows: usize,
     cols: usize,
-    blocks: Vec<bool>,
+    cells: Vec<char>,
 }
 
 impl Grid {
@@ -27,7 +29,15 @@ impl Grid {
     }
 
     pub fn is_block(&self, row: usize, col: usize) -> bool {
-        self.blocks[row * self.cols + col]
+        self.cells[row * self.cols + col] == '#'
+    }
+
+    /// The letter filled into an open cell, if the source text had one.
+    /// `None` for black squares and for open cells that are still blank
+    /// (any non-alphabetic placeholder, typically `.`).
+    pub fn letter(&self, row: usize, col: usize) -> Option<char> {
+        let ch = self.cells[row * self.cols + col];
+        ch.is_alphabetic().then(|| ch.to_ascii_uppercase())
     }
 }
 
@@ -44,6 +54,9 @@ pub struct Slot {
     pub row: usize,
     pub col: usize,
     pub length: usize,
+    /// One character per cell in the slot, in reading order: the filled
+    /// letter where the grid has one, `.` where it's still blank.
+    pub text: String,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -82,7 +95,7 @@ pub fn parse_grid(text: &str) -> Result<Grid, ParseError> {
         None => return Err(ParseError::EmptyGrid),
     };
 
-    let mut blocks = Vec::with_capacity(lines.len() * cols);
+    let mut cells = Vec::with_capacity(lines.len() * cols);
     for (row, line) in lines.iter().enumerate() {
         let found = line.chars().count();
         if found != cols {
@@ -92,13 +105,13 @@ pub fn parse_grid(text: &str) -> Result<Grid, ParseError> {
                 found,
             });
         }
-        blocks.extend(line.chars().map(|ch| ch == '#'));
+        cells.extend(line.chars());
     }
 
     Ok(Grid {
         rows: lines.len(),
         cols,
-        blocks,
+        cells,
     })
 }
 
@@ -126,21 +139,25 @@ pub fn slots(grid: &Grid) -> Vec<Slot> {
             next_number += 1;
 
             if starts_across {
+                let length = across_length(grid, row, col);
                 result.push(Slot {
                     number,
                     direction: Direction::Across,
                     row,
                     col,
-                    length: across_length(grid, row, col),
+                    length,
+                    text: slot_text(grid, Direction::Across, row, col, length),
                 });
             }
             if starts_down {
+                let length = down_length(grid, row, col);
                 result.push(Slot {
                     number,
                     direction: Direction::Down,
                     row,
                     col,
-                    length: down_length(grid, row, col),
+                    length,
+                    text: slot_text(grid, Direction::Down, row, col, length),
                 });
             }
         }
@@ -171,8 +188,9 @@ impl Direction {
 }
 
 /// Renders slots as a JSON array of objects, in the same order `slots`
-/// produced them. No external crate needed: the fields are all plain
-/// numbers or fixed enum strings, so there's nothing to escape.
+/// produced them. No external crate needed: every field is a plain
+/// number, a fixed enum string, or `text`, which only ever holds
+/// uppercase letters and `.`, so nothing here needs escaping.
 pub fn to_json(slots: &[Slot]) -> String {
     let mut out = String::from("[");
     for (i, slot) in slots.iter().enumerate() {
@@ -180,16 +198,29 @@ pub fn to_json(slots: &[Slot]) -> String {
             out.push(',');
         }
         out.push_str(&format!(
-            "{{\"number\":{number},\"direction\":\"{direction}\",\"row\":{row},\"col\":{col},\"length\":{length}}}",
+            "{{\"number\":{number},\"direction\":\"{direction}\",\"row\":{row},\"col\":{col},\"length\":{length},\"text\":\"{text}\"}}",
             number = slot.number,
             direction = slot.direction.as_str(),
             row = slot.row,
             col = slot.col,
             length = slot.length,
+            text = slot.text,
         ));
     }
     out.push(']');
     out
+}
+
+fn slot_text(grid: &Grid, direction: Direction, row: usize, col: usize, length: usize) -> String {
+    (0..length)
+        .map(|i| {
+            let (r, c) = match direction {
+                Direction::Across => (row, col + i),
+                Direction::Down => (row + i, col),
+            };
+            grid.letter(r, c).unwrap_or('.')
+        })
+        .collect()
 }
 
 fn across_length(grid: &Grid, row: usize, col: usize) -> usize {
@@ -252,12 +283,12 @@ mod tests {
         let result = slots(&grid);
 
         let expected = vec![
-            Slot { number: 1, direction: Direction::Across, row: 0, col: 0, length: 3 },
-            Slot { number: 1, direction: Direction::Down, row: 0, col: 0, length: 3 },
-            Slot { number: 2, direction: Direction::Down, row: 0, col: 1, length: 3 },
-            Slot { number: 3, direction: Direction::Down, row: 0, col: 2, length: 3 },
-            Slot { number: 4, direction: Direction::Across, row: 1, col: 0, length: 3 },
-            Slot { number: 5, direction: Direction::Across, row: 2, col: 0, length: 3 },
+            Slot { number: 1, direction: Direction::Across, row: 0, col: 0, length: 3, text: "...".into() },
+            Slot { number: 1, direction: Direction::Down, row: 0, col: 0, length: 3, text: "...".into() },
+            Slot { number: 2, direction: Direction::Down, row: 0, col: 1, length: 3, text: "...".into() },
+            Slot { number: 3, direction: Direction::Down, row: 0, col: 2, length: 3, text: "...".into() },
+            Slot { number: 4, direction: Direction::Across, row: 1, col: 0, length: 3, text: "...".into() },
+            Slot { number: 5, direction: Direction::Across, row: 2, col: 0, length: 3, text: "...".into() },
         ];
 
         assert_eq!(result, expected);
@@ -269,10 +300,10 @@ mod tests {
         let result = slots(&grid);
 
         let expected = vec![
-            Slot { number: 1, direction: Direction::Across, row: 0, col: 0, length: 3 },
-            Slot { number: 1, direction: Direction::Down, row: 0, col: 0, length: 3 },
-            Slot { number: 2, direction: Direction::Down, row: 0, col: 2, length: 3 },
-            Slot { number: 3, direction: Direction::Across, row: 2, col: 0, length: 3 },
+            Slot { number: 1, direction: Direction::Across, row: 0, col: 0, length: 3, text: "...".into() },
+            Slot { number: 1, direction: Direction::Down, row: 0, col: 0, length: 3, text: "...".into() },
+            Slot { number: 2, direction: Direction::Down, row: 0, col: 2, length: 3, text: "...".into() },
+            Slot { number: 3, direction: Direction::Across, row: 2, col: 0, length: 3, text: "...".into() },
         ];
 
         assert_eq!(result, expected);
@@ -300,11 +331,27 @@ mod tests {
         assert_eq!(
             to_json(&result),
             "[\
-             {\"number\":1,\"direction\":\"across\",\"row\":0,\"col\":0,\"length\":3},\
-             {\"number\":1,\"direction\":\"down\",\"row\":0,\"col\":0,\"length\":3},\
-             {\"number\":2,\"direction\":\"down\",\"row\":0,\"col\":2,\"length\":3},\
-             {\"number\":3,\"direction\":\"across\",\"row\":2,\"col\":0,\"length\":3}\
+             {\"number\":1,\"direction\":\"across\",\"row\":0,\"col\":0,\"length\":3,\"text\":\"...\"},\
+             {\"number\":1,\"direction\":\"down\",\"row\":0,\"col\":0,\"length\":3,\"text\":\"...\"},\
+             {\"number\":2,\"direction\":\"down\",\"row\":0,\"col\":2,\"length\":3,\"text\":\"...\"},\
+             {\"number\":3,\"direction\":\"across\",\"row\":2,\"col\":0,\"length\":3,\"text\":\"...\"}\
              ]"
         );
+    }
+
+    #[test]
+    fn letters_are_echoed_back_uppercased_per_slot() {
+        let grid = parse_grid("cat\n.#.\n...").unwrap();
+        let result = slots(&grid);
+
+        assert_eq!(result[0].text, "CAT"); // 1 across
+        assert_eq!(result[1].text, "C.."); // 1 down, only the shared cell is filled
+    }
+
+    #[test]
+    fn blank_placeholder_characters_are_not_treated_as_letters() {
+        let grid = parse_grid("_-_\n___").unwrap();
+        assert_eq!(grid.letter(0, 0), None);
+        assert_eq!(slots(&grid)[0].text, "...");
     }
 }
