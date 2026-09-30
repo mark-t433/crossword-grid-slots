@@ -12,8 +12,8 @@ Working it out by hand for anything bigger than a 5x5 is tedious and
 easy to get wrong at the edges. This tool does the arithmetic.
 
 It reads a plain-text grid and prints every numbered slot. Nothing
-else — no word fill, no clue database, no symmetry checking. Just the
-one question: what are the slots?
+else — no word fill, no clue database. Just the one question: what are
+the slots? (Symmetry is only checked if you ask, see below.)
 
 ## Grid format
 
@@ -72,6 +72,18 @@ cargo run -- --format json example.txt
 ```
 
 The default is `--format text`. `--format=json` also works.
+
+Pass `--warn-symmetry` to check 180-degree rotational symmetry, which
+most published grids are expected to have. Each black square whose
+rotated partner is open gets a line on stderr:
+
+```
+warning: block at row=0 col=0 has no partner at row=2 col=2
+```
+
+It is only a warning: the slots are still printed and the exit code is
+unchanged. In the library, `gridslots::asymmetric_blocks(&grid)` returns
+the same squares as `(row, col)` pairs.
 
 ## Library
 

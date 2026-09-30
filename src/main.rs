@@ -3,7 +3,7 @@ use std::fs;
 use std::io::{self, Read};
 use std::process::ExitCode;
 
-use gridslots::{parse_grid, slots, to_json, Direction};
+use gridslots::{asymmetric_blocks, parse_grid, slots, to_json, Direction};
 
 enum Format {
     Text,
@@ -21,9 +21,15 @@ fn parse_format(value: &str) -> Option<Format> {
 fn main() -> ExitCode {
     let mut format = Format::Text;
     let mut path = None;
+    let mut warn_symmetry = false;
 
     let mut args = env::args().skip(1);
     while let Some(arg) = args.next() {
+        if arg == "--warn-symmetry" {
+            warn_symmetry = true;
+            continue;
+        }
+
         let value = if let Some(value) = arg.strip_prefix("--format=") {
             Some(value.to_string())
         } else if arg == "--format" {
@@ -79,6 +85,18 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+
+    // Warnings go to stderr so json or text output stays clean to pipe,
+    // and the exit code stays success: an asymmetric grid is still valid.
+    if warn_symmetry {
+        for (row, col) in asymmetric_blocks(&grid) {
+            eprintln!(
+                "warning: block at row={row} col={col} has no partner at row={} col={}",
+                grid.rows() - 1 - row,
+                grid.cols() - 1 - col,
+            );
+        }
+    }
 
     let result = slots(&grid);
 

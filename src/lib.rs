@@ -166,6 +166,26 @@ pub fn slots(grid: &Grid) -> Vec<Slot> {
     result
 }
 
+/// Black squares whose 180-degree rotational partner is open, in reading
+/// order. Most newspaper grids are required to be symmetric this way, but
+/// plenty of valid grids aren't, so this only reports; it never rejects.
+/// An empty result means the grid is symmetric. Each mismatch is reported
+/// once, on the block side, which is the square a constructor would need
+/// to add or remove a partner for.
+pub fn asymmetric_blocks(grid: &Grid) -> Vec<(usize, usize)> {
+    let mut result = Vec::new();
+    for row in 0..grid.rows {
+        for col in 0..grid.cols {
+            if grid.is_block(row, col)
+                && !grid.is_block(grid.rows - 1 - row, grid.cols - 1 - col)
+            {
+                result.push((row, col));
+            }
+        }
+    }
+    result
+}
+
 fn starts_across(grid: &Grid, row: usize, col: usize) -> bool {
     let left_is_boundary = col == 0 || grid.is_block(row, col - 1);
     let right_is_open = col + 1 < grid.cols && !grid.is_block(row, col + 1);
@@ -316,6 +336,31 @@ mod tests {
         assert!(!grid.is_block(0, 1));
         assert!(!grid.is_block(1, 0));
         assert!(!grid.is_block(1, 1));
+    }
+
+    #[test]
+    fn symmetric_grid_has_no_asymmetric_blocks() {
+        let grid = parse_grid("#..\n...\n..#").unwrap();
+        assert_eq!(asymmetric_blocks(&grid), Vec::new());
+    }
+
+    #[test]
+    fn center_block_is_its_own_partner() {
+        let grid = parse_grid("...\n.#.\n...").unwrap();
+        assert_eq!(asymmetric_blocks(&grid), Vec::new());
+    }
+
+    #[test]
+    fn lone_corner_block_is_reported() {
+        let grid = parse_grid("#..\n...\n...").unwrap();
+        assert_eq!(asymmetric_blocks(&grid), vec![(0, 0)]);
+    }
+
+    #[test]
+    fn mirrored_across_an_axis_is_not_rotational_symmetry() {
+        // Blocks at both top corners are a mirror image, not a rotation.
+        let grid = parse_grid("#.#\n...\n...").unwrap();
+        assert_eq!(asymmetric_blocks(&grid), vec![(0, 0), (0, 2)]);
     }
 
     #[test]
